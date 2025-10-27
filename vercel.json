@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/agent.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/agent.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "public/$1"
+    }
+  ],
+  "env": {
+    "REDDIT_CLIENT_ID": "@reddit_client_id",
+    "REDDIT_CLIENT_SECRET": "@reddit_client_secret",
+    "REDDIT_USERNAME": "@reddit_username",
+    "REDDIT_REFRESH_TOKEN": "@reddit_refresh_token",
+    "GOOGLE_CLOUD_PROJECT": "@google_cloud_project",
+    "APP_ID": "@app_id",
+    "API_KEY": "@api_key"
+  }
+}
+
