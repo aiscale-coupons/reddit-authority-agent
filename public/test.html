@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Test</title>
+    <!-- Load Firebase SDK from CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <h1>Firebase Initialization Test</h1>
+    <p id="status">Attempting to initialize Firebase...</p>
+
+    <script>
+        // YOUR HARDCODED CONFIGURATION
+        const firebaseConfig = {
+          apiKey: "AIzaSyD1iAVk21I9FFGcqBk_DiN8G6h1ZzGNZu8",
+          authDomain: "authority-agent-cf31c.firebaseapp.com",
+          projectId: "authority-agent-cf31c",
+          storageBucket: "authority-agent-cf31c.firebasestorage.app",
+          messagingSenderId: "157585429619",
+          appId: "1:157585429619:web:33e9e76e8afb36f74ac606",
+          measurementId: "G-RQN146G9K9"
+        };
+
+        try {
+            // Initialize Firebase App
+            const app = firebase.initializeApp(firebaseConfig);
+            document.getElementById('status').innerText = 'SUCCESS: Firebase App Initialized.';
+
+            // Test Firestore connection
+            const db = app.firestore();
+            document.getElementById('status').innerText += ' Firestore connection object created.';
+
+            // Attempt a simple read (requires correct Firestore rules)
+            // This is just a basic check, the main goal is to see if initialization fails.
+            db.collection('posts').limit(1).get()
+                .then(() => {
+                    document.getElementById('status').innerText += ' Firestore read test successful.';
+                })
+                .catch(error => {
+                    document.getElementById('status').innerText += ` Firestore read failed: ${error.message}`;
+                    console.error("Firestore Read Error:", error);
+                });
+
+
+        } catch (error) {
+            document.getElementById('status').innerText = `FAILURE: Initialization Failed. Error: ${error.message}`;
+            console.error("Initialization Error:", error);
+        }
+    </script>
+</body>
+</html>
