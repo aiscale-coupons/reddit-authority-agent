@@ -102,7 +102,8 @@
     // --- Global Variables (Mandatory Canvas Environment Variables) ---
     // These must be used for authentication and database pathing
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        // Use Vercel-friendly environment variable name
+    const firebaseConfig = typeof FIREBASE_CONFIG_JSON !== 'undefined' ? JSON.parse(FIREBASE_CONFIG_JSON) : {};
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     // --- Firebase Initialization ---
