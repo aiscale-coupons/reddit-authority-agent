@@ -26,6 +26,8 @@
     "REDDIT_USERNAME": "@reddit_username",
     "REDDIT_REFRESH_TOKEN": "@reddit_refresh_token",
     "GOOGLE_CLOUD_PROJECT": "@google_cloud_project",
+    "WORKLOAD_IDENTITY_PROVIDER": "@workload_identity_provider",
+    "SERVICE_ACCOUNT_EMAIL": "@service_account_email",
     "APP_ID": "@app_id",
     "API_KEY": "@api_key"
   }

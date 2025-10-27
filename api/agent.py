@@ -48,13 +48,32 @@ class PostStatus(Enum):
 # --- Firebase and PRAW Initialization ---
 
 def initialize_firestore():
-    """Initializes and returns the Firestore client."""
+    """Initializes and returns the Firestore client.
+    
+    Supports two authentication methods:
+    1. Workload Identity Federation (recommended for production on Vercel)
+    2. Application Default Credentials (for local development)
+    """
     try:
-        db = firestore.Client(project=GOOGLE_CLOUD_PROJECT)
-        logger.info("Connected to Firestore using Application Default Credentials (ADC).")
-        return db
+        # Try to use Workload Identity Federation first (Vercel environment)
+        if os.getenv("WORKLOAD_IDENTITY_PROVIDER"):
+            import google.auth
+            credentials, project_id = google.auth.default(
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            )
+            db = firestore.Client(
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                credentials=credentials
+            )
+            logger.info("Connected to Firestore using Workload Identity Federation (WIF).")
+            return db
+        else:
+            # Fall back to Application Default Credentials
+            db = firestore.Client(project=os.getenv("GOOGLE_CLOUD_PROJECT"))
+            logger.info("Connected to Firestore using Application Default Credentials (ADC).")
+            return db
     except DefaultCredentialsError:
-        logger.error("Could not initialize Firestore. Ensure GOOGLE_CLOUD_PROJECT is set.")
+        logger.error("Could not initialize Firestore. Ensure GOOGLE_CLOUD_PROJECT is set and credentials are available.")
         return None
     except Exception as e:
         logger.error(f"Error initializing Firestore: {e}")
