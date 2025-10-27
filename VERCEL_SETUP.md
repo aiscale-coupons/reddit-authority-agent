@@ -29,15 +29,7 @@ When the import dialog appears:
 
 In the **"Environment Variables"** section, add the following variables:
 
-| Variable | Value | Notes |
-|----------|-------|-------|
-| `REDDIT_CLIENT_ID` | `W4sJxi7iyJMIcnnt5bcDMA` | Your Reddit app client ID |
-| `REDDIT_CLIENT_SECRET` | `7siQh54ozEg3iKV_ckFJ8bxet1FyZA` | Your Reddit app secret |
-| `REDDIT_USERNAME` | `mylifemygoals` | Your Reddit username |
-| `REDDIT_REFRESH_TOKEN` | `100412803-5182064102-1o9g8n81u-iI49cM4w-3T4hM7uN_yYyV` | Your Reddit refresh token |
-| `GOOGLE_CLOUD_PROJECT` | `your_google_cloud_project_id` | Your Google Cloud Project ID |
-| `APP_ID` | `reddit-authority-agent-prod` | Unique app identifier |
-| `API_KEY` | Generate a secure random string | Use: `openssl rand -hex 32` |
+
 
 **To add environment variables:**
 
