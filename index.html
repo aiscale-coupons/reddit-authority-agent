@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAA Draft Review Console</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font family -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<div id="app" class="flex flex-col md:flex-row h-screen">
+
+    <!-- Sidebar: Post List -->
+    <div class="w-full md:w-80 bg-white border-r border-gray-200 shadow-xl overflow-y-auto flex-shrink-0">
+        <header class="p-4 bg-gray-900 text-white shadow-lg">
+            <h1 class="text-xl font-bold">Draft Queue</h1>
+            <p id="auth-status" class="text-xs mt-1 opacity-75">Connecting...</p>
+        </header>
+
+        <div id="post-list" class="divide-y divide-gray-100">
+            <!-- Posts will be injected here -->
+            <div class="p-4 text-center text-gray-500">Loading posts...</div>
+        </div>
+    </div>
+
+    <!-- Main Content: Editor and Review -->
+    <main class="flex-grow p-6 overflow-y-auto bg-gray-100">
+        <div id="editor-view" class="max-w-4xl mx-auto h-full">
+            
+            <!-- Welcome View (Default) -->
+            <div id="welcome-message" class="text-center p-20 bg-white border-2 border-dashed border-gray-300 rounded-xl shadow-lg h-full flex flex-col justify-center items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-16 h-16 text-gray-400 mb-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zm0 0L19.5 7.125" />
+                </svg>
+                <h2 class="text-2xl font-semibold text-gray-700 mb-2">Select a Draft to Review</h2>
+                <p class="text-gray-500">Choose a post from the sidebar to view the AI-generated draft, edit it, and approve it for deployment.</p>
+            </div>
+
+            <!-- Editor View (Hidden until post selected) -->
+            <div id="post-editor" class="hidden bg-white rounded-xl shadow-2xl p-6 transition-all duration-300 h-full flex flex-col">
+                <div class="mb-4 pb-4 border-b">
+                    <h2 class="text-3xl font-extrabold text-gray-900" id="post-title"></h2>
+                    <p class="text-sm text-gray-500 mt-1">Subreddit: <span id="post-subreddit" class="font-medium text-gray-700"></span> | ID: <span id="post-id" class="font-mono text-xs"></span></p>
+                </div>
+                
+                <div class="flex-grow flex flex-col space-y-4 overflow-hidden">
+                    <!-- Original Post Body -->
+                    <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                        <p class="text-xs font-semibold text-indigo-700 mb-1">Original Post Text:</p>
+                        <p class="text-sm text-indigo-900 max-h-24 overflow-y-auto" id="post-text"></p>
+                    </div>
+
+                    <!-- AI Draft Editor -->
+                    <div class="flex-grow flex flex-col min-h-0">
+                        <label for="draft-editor" class="block text-sm font-medium text-gray-700 mb-2">AI Generated Draft (Markdown):</label>
+                        <textarea id="draft-editor" 
+                                  class="flex-grow w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-blue-500 focus:border-blue-500 shadow-inner resize-none min-h-[100px] md:min-h-full"></textarea>
+                    </div>
+                </div>
+
+                <!-- Footer/Actions -->
+                <div class="mt-6 pt-4 border-t flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <label for="status-selector" class="text-sm font-medium text-gray-700">Status:</label>
+                        <select id="status-selector" 
+                                class="border border-gray-300 rounded-lg p-2 text-sm shadow-sm">
+                            <option value="Draft_Ready">Draft Ready (Needs Review)</option>
+                            <option value="Approved">Approved (Ready for Deployment)</option>
+                            <option value="Rejected">Rejected (Discard Draft)</option>
+                            <option value="New">New (Redo AI Generation)</option>
+                            <option value="Posted" disabled>Posted (Completed)</option>
+                            <option value="Failed_AI_Gen" disabled>Failed AI Gen</option>
+                        </select>
+                    </div>
+
+                    <button onclick="savePost()"
+                            class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-700 transition duration-150 ease-in-out transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50">
+                        <span id="save-button-text">Save Changes</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<!-- Firebase Scripts -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, updateDoc, onSnapshot, collection, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Set Firestore log level to debug for better console feedback
+    setLogLevel('Debug');
+
+    // --- Global Variables (Mandatory Canvas Environment Variables) ---
+    // These must be used for authentication and database pathing
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // Use Vercel-friendly environment variable name
+        // The frontend will now fetch the Firebase config from the /api/config endpoint
+    let firebaseConfig = {}; // Will be populated by fetch call
+    
+    async function fetchFirebaseConfig() {
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to fetch Firebase config:', error);
+            document.getElementById('auth-status').textContent = 'ERROR: Failed to Load Config.';
+            return null;
+        }
+    }
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // --- Firebase Initialization ---
+    let db;
+    let auth;
+    let userId = null;
+    let currentPosts = [];
+    let currentPostId = null;
+
+    // Wait for the window to load before starting initialization
+    window.onload = async () => {
+        // Fetch config before proceeding
+        const config = await fetchFirebaseConfig();
+        if (!config) {
+            return;
+        }
+        firebaseConfig = config; // Set the global config variable
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            // 1. Sign In (using custom token if provided, otherwise anonymously)
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken);
+            } else {
+                await signInAnonymously(auth);
+            }
+
+            // 2. Auth State Change Listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    document.getElementById('auth-status').textContent = `Authenticated (User ID: ${userId.substring(0, 8)}...)`;
+                    console.log("Authentication successful. User ID:", userId);
+                    loadPosts();
+                } else {
+                    document.getElementById('auth-status').textContent = "Signed out.";
+                    console.warn("User signed out or authentication failed.");
+                }
+            });
+
+        } catch (error) {
+            console.error("Error during Firebase initialization or sign-in:", error);
+            document.getElementById('auth-status').textContent = `Auth Error: ${error.message}`;
+        }
+    };
+
+    // --- Data Loading and Real-Time Listener ---
+
+    const getCollectionPath = () => `artifacts/${appId}/public/data/reddit_posts`;
+
+    /** Loads and listens to all posts in real-time. */
+    const loadPosts = () => {
+        if (!db) return;
+
+        const postsColRef = collection(db, getCollectionPath());
+        
+        // Listen for all posts, ordered by created_at (most recent first)
+        // NOTE: We avoid orderBy() to prevent index requirements, sorting client-side instead.
+        const q = query(postsColRef);
+
+        onSnapshot(q, (querySnapshot) => {
+            const posts = [];
+            querySnapshot.forEach((doc) => {
+                posts.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Client-side sort by created_at descending (newest first)
+            posts.sort((a, b) => b.created_at - a.created_at);
+            currentPosts = posts;
+            renderPostList(posts);
+            
+            // If a post is currently selected (via hash), re-select it
+            if (window.location.hash) {
+                const idFromHash = window.location.hash.substring(1);
+                const post = currentPosts.find(p => p.id === idFromHash);
+                if (post) {
+                    selectPost(post);
+                }
+            }
+        }, (error) => {
+            console.error("Firestore Snapshot error:", error);
+            document.getElementById('post-list').innerHTML = `<div class="p-4 text-center text-red-500">Error loading posts: ${error.message}</div>`;
+        });
+    };
+
+    // --- UI Rendering ---
+
+    const getStatusClass = (status) => {
+        switch (status) {
+            case 'Draft_Ready': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+            case 'Approved': return 'bg-green-100 text-green-800 border-green-300';
+            case 'Posted': return 'bg-blue-100 text-blue-800 border-blue-300';
+            case 'Failed_AI_Gen': 
+            case 'Rejected':
+            case 'Failed_To_Post': return 'bg-red-100 text-red-800 border-red-300';
+            default: return 'bg-gray-100 text-gray-700 border-gray-300';
+        }
+    }
+
+    const renderPostList = (posts) => {
+        const listContainer = document.getElementById('post-list');
+        listContainer.innerHTML = ''; // Clear existing list
+
+        if (posts.length === 0) {
+            listContainer.innerHTML = `<div class="p-4 text-center text-gray-500">No posts in the queue.</div>`;
+            return;
+        }
+
+        posts.forEach(post => {
+            const isSelected = post.id === currentPostId;
+            const itemClass = isSelected ? 'bg-indigo-50 border-indigo-500 border-l-4' : 'hover:bg-gray-50';
+            
+            const postElement = document.createElement('div');
+            postElement.className = `p-4 cursor-pointer transition-colors ${itemClass}`;
+            postElement.onclick = () => selectPost(post);
+            postElement.innerHTML = `
+                <div class="text-sm font-semibold truncate text-gray-900">${post.title}</div>
+                <div class="flex items-center mt-1 space-x-2">
+                    <span class="text-xs text-gray-500 font-medium">r/${post.subreddit}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusClass(post.status)}">
+                        ${post.status.replace(/_/g, ' ')}
+                    </span>
+                </div>
+            `;
+            listContainer.appendChild(postElement);
+        });
+    }
+
+    /** Populates the main editor view with the selected post's data. */
+    window.selectPost = (post) => {
+        currentPostId = post.id;
+        window.location.hash = post.id; // Update hash for deep linking/persistence
+
+        document.getElementById('welcome-message').classList.add('hidden');
+        document.getElementById('post-editor').classList.remove('hidden');
+
+        document.getElementById('post-title').textContent = post.title;
+        document.getElementById('post-subreddit').textContent = post.subreddit;
+        document.getElementById('post-id').textContent = post.id;
+        document.getElementById('post-text').textContent = post.text;
+        document.getElementById('draft-editor').value = post.ai_draft || '';
+        document.getElementById('status-selector').value = post.status;
+        
+        // Re-render the list to highlight the selected item
+        renderPostList(currentPosts);
+
+        // Disable editor if post is already posted or failed
+        const disableEditing = ['Posted', 'Failed_To_Post'].includes(post.status);
+        document.getElementById('draft-editor').disabled = disableEditing;
+        document.getElementById('status-selector').disabled = disableEditing;
+        
+        const saveButton = document.getElementById('save-button-text');
+        if (disableEditing) {
+            saveButton.textContent = 'View Only (Post Complete)';
+            saveButton.parentNode.disabled = true;
+            saveButton.parentNode.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            saveButton.parentNode.classList.add('bg-gray-400', 'cursor-not-allowed');
+        } else {
+            saveButton.textContent = 'Save Changes';
+            saveButton.parentNode.disabled = false;
+            saveButton.parentNode.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            saveButton.parentNode.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        }
+    }
+    
+    /** Saves the updated draft and status back to Firestore. */
+    window.savePost = async () => {
+        if (!currentPostId || !db) {
+            console.error("No post selected or database not initialized.");
+            return;
+        }
+
+        const draftEditor = document.getElementById('draft-editor');
+        const statusSelector = document.getElementById('status-selector');
+        const saveButton = document.getElementById('save-button-text');
+
+        saveButton.textContent = 'Saving...';
+        saveButton.parentNode.classList.add('opacity-75', 'animate-pulse');
+
+        try {
+            const postRef = doc(db, getCollectionPath(), currentPostId);
+            
+            await updateDoc(postRef, {
+                ai_draft: draftEditor.value,
+                status: statusSelector.value,
+                updated_at: Date.now() / 1000 // Update timestamp
+            });
+
+            saveButton.textContent = 'Saved!';
+            setTimeout(() => {
+                saveButton.textContent = 'Save Changes';
+                saveButton.parentNode.classList.remove('opacity-75', 'animate-pulse');
+            }, 1500);
+
+            console.log(`Post ${currentPostId} updated successfully to status: ${statusSelector.value}`);
+
+        } catch (e) {
+            console.error("Error saving document: ", e);
+            saveButton.textContent = 'Save Failed!';
+            saveButton.parentNode.classList.remove('opacity-75', 'animate-pulse');
+            saveButton.parentNode.classList.add('bg-red-600');
+        }
+    };
+</script>
+</body>
+</html>
