@@ -136,11 +136,6 @@
             return;
         }
         firebaseConfig = config; // Set the global config variable
-        const config = await fetchFirebaseConfig();
-        if (!config) {
-            return;
-        }
-        firebaseConfig = config; // Set the global config variable
 
         try {
             const app = initializeApp(firebaseConfig);
