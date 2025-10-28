@@ -1,7 +1,7 @@
 Flask==2.3.3
-google-genai # Add the Gemini SDK
+google-genai
 praw==7.7.0
 google-cloud-firestore==2.13.1
 google-auth==2.25.2
 python-dotenv==1.0.0
-
+packaging # NEW: Fixes ModuleNotFoundError in Vercel deployment
