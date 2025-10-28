@@ -2,6 +2,15 @@
 Reddit Authority Agent - Vercel Serverless Function Handler
 This module provides HTTP endpoints for the Reddit Authority Agent.
 """
+# Forced rebuild: 2025-10-28
+
+import os
+# ... rest of the file
+
+"""
+Reddit Authority Agent - Vercel Serverless Function Handler
+This module provides HTTP endpoints for the Reddit Authority Agent.
+"""
 
 import os
 import json
