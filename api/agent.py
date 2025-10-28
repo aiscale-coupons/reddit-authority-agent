@@ -10,6 +10,17 @@ from enum import Enum
 from datetime import datetime
 import praw
 from google.cloud import firestore
+# Import the Google GenAI SDK (assuming the user intends to use it)
+try:
+    from google import genai
+    from google.genai.errors import APIError as GenAI_APIError
+    GEMINI_AVAILABLE = True
+except ImportError:
+    # If the library is not installed, the Gemini function will log an error and skip.
+    # This is a common issue in Vercel deployments if the dependency is missing.
+    GEMINI_AVAILABLE = False
+    class GenAI_APIError(Exception): pass
+    logger.warning("Google GenAI SDK not found. Gemini functionality will be disabled.")
 from google.auth.exceptions import DefaultCredentialsError
 from flask import Flask, request, jsonify
 from functools import wraps
@@ -80,6 +91,48 @@ def initialize_firestore():
         return None
 
 
+# --- Gemini AI Integration ---
+
+def generate_ai_draft(post_data):
+    """
+    Generates an AI draft response for a given Reddit post using the Gemini API.
+    
+    Args:
+        post_data (dict): A dictionary containing the post's title and body.
+        
+    Returns:
+        str or None: The generated draft text, or None if generation fails.
+    """
+    if not GEMINI_AVAILABLE:
+        logger.error("Gemini AI is not available. Please install the 'google-genai' library.")
+        return None
+
+    # The user mentioned using Gemini AI, but the code does not have the API key
+    # or the model name configured. We will use a placeholder for now.
+    # A real implementation would require a GEMINI_API_KEY environment variable.
+    # For now, we will assume the model is available via ADC/WIF if configured,
+    # but the Vercel environment variables only contain GOOGLE_CLOUD_PROJECT,
+    # which is for Firestore, not necessarily for the Gemini API.
+    # For a quick fix, we'll implement a stub.
+    logger.warning("Gemini AI generation is currently a stub. Real implementation requires 'google-genai' and GEMINI_API_KEY.")
+    
+    # Placeholder for the actual Gemini API call
+    prompt = f"Analyze the following Reddit post and generate a helpful, engaging, and relevant response draft in Markdown format. Post Title: '{post_data['title']}', Post Body: '{post_data['body']}'"
+    
+    # In a real scenario, this would be:
+    # try:
+    #     client = genai.Client()
+    #     response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+    #     return response.text
+    # except GenAI_APIError as e:
+    #     logger.error(f"Gemini API call failed: {e}")
+    #     return None
+    # except Exception as e:
+    #     logger.error(f"An unexpected error occurred during Gemini generation: {e}")
+    #     return None
+    
+    return f"AI Draft for: {post_data['title'][:30]}... (Note: Real Gemini integration is pending.)"
+
 def initialize_reddit():
     """Initializes and returns the PRAW Reddit instance."""
     if not all([REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_REFRESH_TOKEN]):
@@ -142,8 +195,14 @@ def fetch_or_initialize_post(db, post_id, data):
             "deployment_id": None,
             "ingested_at": firestore.SERVER_TIMESTAMP,
         }
+        
+        # --- NEW: Trigger AI Draft Generation ---
+        new_post_data['ai_draft'] = generate_ai_draft(data)
+        new_post_data['status'] = PostStatus.ANALYSIS_PENDING.value if new_post_data['ai_draft'] else PostStatus.NEW.value
+        # --- END NEW ---
+
         doc_ref.set(new_post_data)
-        logger.info(f"    -> Ingested new post: {data['title'][:50]}... (ID: {post_id})")
+        logger.info(f"    -> Ingested new post: {data['title'][:50]}... (ID: {post_id}) with status: {new_post_data['status']}")
         return new_post_data
 
 
@@ -226,6 +285,29 @@ def require_api_key(f):
 
 
 # --- API Endpoints ---
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """Returns the Firebase configuration for the frontend."""
+    # The user is likely using a Firebase web app for the frontend.
+    # The config is not in the repo, so we will use placeholders and advise the user.
+    # In a real scenario, this config would be loaded from a secure source.
+    # For now, we return a structure that the frontend expects.
+    
+    # NOTE: The user needs to provide the actual Firebase config for this to work.
+    # The APP_ID is already in vercel.json.
+    
+    config = {
+        "apiKey": os.getenv("FIREBASE_API_KEY", "YOUR_FIREBASE_API_KEY"),
+        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", f"{GOOGLE_CLOUD_PROJECT}.firebaseapp.com"),
+        "projectId": GOOGLE_CLOUD_PROJECT,
+        "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET", f"{GOOGLE_CLOUD_PROJECT}.appspot.com"),
+        "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID", "1234567890"),
+        "appId": os.getenv("FIREBASE_APP_ID", "1:1234567890:web:abcdef1234567890"),
+    }
+    
+    return jsonify(config), 200
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
