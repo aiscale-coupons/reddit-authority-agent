@@ -1,4 +1,4 @@
-Flask==2.2.5 # Changed from 2.3.3 to 2.2.5 for Vercel compatibility
+Flask==2.2.5
 google-genai
 praw==7.7.0
 google-cloud-firestore==2.13.1
